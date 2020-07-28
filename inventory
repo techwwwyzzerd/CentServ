@@ -1,0 +1,8 @@
+[repo]
+repo.test.example.com ansible_host=192.168.1.50 ansible_user=vagrant ansible_ssh_pass=vagrant
+[ipa]
+ipa.test.example.com ansible_host=192.168.1.51 ansible_user=vagrant ansible_ssh_pass=vagrant
+[system1]
+system1.test.example.com ansible_host=192.168.1.52 ansible_user=vagrant ansible_ssh_pass=vagrant
+[system2]
+system2.test.example.com ansible_host=192.168.1.53 ansible_user=vagrant ansible_ssh_pass=vagrant
