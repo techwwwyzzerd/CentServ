@@ -1,0 +1,90 @@
+---
+- name: Setting up System 2
+  hosts: system2
+  strategy: free
+  gather_facts: False
+  ignore_errors: true
+  tasks:
+  - name: Setting Hostname
+    hostname: name=system2.test.brydar.com
+  - name: Changing User Password
+    shell: echo vagrant | sudo passwd vagrant --stdin
+    become: no
+  - name: Changing Root Password
+    shell: echo password | sudo passwd root --stdin
+  - name: Building host file
+    copy:
+      dest: /etc/hosts
+      content: "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4\n192.168.1.50 repo.test.brydar.com repo\n192.168.1.51 ipa.test.brydar.com ipa\n192.168.1.52 system1.test.brydar.com system1\n192.168.1.53 system2.test.brydar.com system2"
+      force: yes
+  - name: Configuring network
+    command: nmcli con mod "System enp0s8" ipv4.addresses "192.168.1.53/24 192.168.1.1" ipv4.dns 192.168.1.53 ipv4.dns-search test.brydar.com ipv4.method manual
+  - name: Reloading Network
+    service: name=NetworkManager state=restarted 
+  - name: Fixing Resolv File
+    command: echo 'nameserver 192.168.1.1' > /etc/resolv.conf
+  - name: Authconfig Enabled. Configuring IPA Client...
+    command: authconfig --update --enablesssd --enablesssdauth --enablemkhomedir
+  - name: Configuring IPA client
+    command: ipa-client-install --enable-dns-updates --force-join --mkhomedir --principal admin --server  ipa.test.brydar.com -w password --hostname system2.test.brydar.com --realm TESt.brydar.COM --domain test.brydar.com -U
+    ignore_errors: yes
+    async: 500
+    poll: 0
+    register: ipa_sleeper
+  - name: Erasing Repos and Enabling Firewalld
+    shell: rm -rf /etc/yum.repos.d/*
+    tags: repo
+  - name: Finishing IPA client configuration...Contacting IPA Server
+    service: 
+      name: firewalld
+      state: started
+      enabled: yes
+  - name: Finished IPA client configuration
+    async_status: jid={{ ipa_sleeper.ansible_job_id }}
+    register: job_result
+    until: job_result.finished
+    retries: 40
+  - name: Creating Welcome Message
+    file:
+      path: /etc/profile.d/welcome.sh
+      state: touch
+      mode: 0755
+  - name: Building Welcome Message
+    blockinfile:
+      dest: /etc/profile.d/welcome.sh
+      block: |
+         #!/bin/bash
+         #
+         echo -e '
+         #          _     _        _        _         _           _          _   _         _       
+         #         / /\  /\ \     /\_\     / /\      /\ \        /\ \       /\_\/\_\ _   /\ \      
+         #        / /  \ \ \ \   / / /    / /  \     \_\ \      /  \ \     / / / / //\_\/  \ \     
+         #       / / /\ \_\ \ \_/ / /    / / /\ \__  /\__ \    / /\ \ \   /\ \/ \ \/ / / /\ \ \    
+         #      / / /\ \___\ \___/ /    / / /\ \___\/ /_ \ \  / / /\ \_\ /  \____\__/ /\/_/\ \ \   
+         #      \ \ \ \/___/\ \ \_/     \ \ \ \/___/ / /\ \ \/ /_/_ \/_// /\/________/     / / /   
+         #       \ \ \       \ \ \       \ \ \    / / /  \/_/ /____/\  / / /\/_// / /     / / /    
+         #   _    \ \ \       \ \ \  _    \ \ \  / / /     / /\____\/ / / /    / / /     / / /  _  
+         #  /_/\__/ / /        \ \ \/_/\__/ / / / / /     / / /______/ / /    / / /     / / /_/\_\ 
+         #  \ \/___/ /          \ \_\ \/___/ / /_/ /     / / /_______\/_/    / / /     / /_____/ / 
+         #   \_____\/            \/_/\_____\/  \_\/      \/__________/       \/_/      \________/  
+         '"#
+         # You are logged into \"`hostname`\" as the \"`whoami`\" account.
+         # This system is running `cat /etc/redhat-release`
+         #
+         # For root - use \`sudo\` or \`sudo su -\`
+         #
+         # Repo is available to use from http://repo.test.brydar.com/rpms
+         # Keytab is provided on http://ipa.test.brydar.com/system.keytab
+         # CA certificate is provided on http://ipa.test.brydar.com/ca.crt
+         # 
+         # TESt.brydar.COM realm has been configured already 
+         # There are also two additional NICs and an additional drive.        
+         # 
+         # LDAP Users (Can be easily accessed from root user)
+         # Usernames = dave, lisa
+         # Passwords = password
+         "
+  - name: Adjusting Services and Rebooting
+    selinux:
+      state: permissive
+      policy: targeted
