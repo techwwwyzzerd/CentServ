@@ -1,0 +1,158 @@
+---
+- name: Finishing Kerberos Configuration
+  hosts: ipa
+  strategy: free
+  gather_facts: False
+  ignore_errors: true
+  become: yes
+  tasks:
+  - name: Adding DNS Record
+    ipa_dnsrecord:
+      ipa_host: ipa.test.brydar.com
+      ipa_pass: password
+      state: present
+      zone_name: test.brydar.com
+      record_name: system1
+      record_type: 'A'
+      record_value: '192.168.1.51'
+  - name: Adding NFS service to System1
+    ipa_service:
+      name: nfs/system1.test.brydar.com
+      state: present
+      ipa_host: ipa.test.brydar.com
+      ipa_user: admin
+      ipa_pass: password 
+  - name: Adding IPA user 'dave'
+    ipa_user:
+        name: dave
+        state: present
+        krbpasswordexpiration: '20200119235959'
+        givenname: dave
+        sn: dave
+        mail:
+        - dave@test.brydar.com
+        telephonenumber:
+        - '+555123456'
+        sshpubkey:
+        password: password
+        uidnumber: '1001'
+        gidnumber: '101'
+        ipa_host:  ipa.test.brydar.com
+        ipa_user: admin
+        ipa_pass: password
+  - name: Adding IPA user 'lisa'
+    ipa_user:
+        name: lisa
+        state: present
+        krbpasswordexpiration: '20200119235959'
+        givenname: lisa
+        sn: lisa
+        mail:
+        - lisa@test.brydar.com
+        telephonenumber:
+        - '+555123456'
+        sshpubkey:
+        password: password
+        uidnumber: '1002'
+        gidnumber: '102'
+        ipa_host:  ipa.test.brydar.com
+        ipa_user: admin
+        ipa_pass: password    
+  - name: Sending Key to System1
+    expect:
+      command: ssh-copy-id -i /home/vagrant/.ssh/id_rsa.pub vagrant@system1.test.brydar.com 
+      responses:
+        'Are you sure you want to continue connecting': 'yes'
+        'Password': 'vagrant'
+        '\]\$': 'logout'
+        "vagrant@system1.test.brydar.com's password": 'vagrant'
+      timeout: 10
+    become_user: vagrant
+  - name: Sending Key to System2
+    expect:
+      command: ssh-copy-id -i /home/vagrant/.ssh/id_rsa.pub vagrant@system2.test.brydar.com 
+      responses:
+        'Are you sure you want to continue connecting': 'yes'
+        'Password': 'vagrant'
+        '\]\$': 'logout'
+        "vagrant@system2.test.brydar.com's password": 'vagrant'
+      timeout: 10
+    become_user: vagrant
+  - name: Authenticating KRB5 Database
+    expect:
+      command: kinit admin
+      responses:
+        (.*)Password for admin@TEST.brydar.COM(.*): 'password'
+    tags: kerberos
+  - name: Adding System1 NFS Principal to Keytab
+    command: sudo kadmin.local ktadd nfs/system1.test.brydar.com
+    tags: kerberos
+  - name: Adding System1 Host Principal to Keytab
+    command: sudo kadmin.local ktadd host/system1.test.brydar.com
+    tags: kerberos
+  - name: Adding System2 Host Principal to Keytab
+    command: sudo kadmin.local ktadd host/system2.test.brydar.com
+  - name: Copying Keytab To Apache Server
+    copy:
+      src: /etc/krb5.keytab
+      dest: /var/www/html/system.keytab
+      remote_src: yes
+      mode: '0644'
+  - name: Copying Keytab To Apache Server
+    copy:
+      src: /etc/krb5.keytab
+      dest: /var/www/html/system.keytab
+      remote_src: yes
+      mode: '0644'
+  - name: Copying CA CERT
+    copy: 
+      src: /etc/ipa/ca.crt
+      dest: /var/www/html/ca.crt
+      remote_src: yes
+      mode: '0644'
+  - name: Creating Secure Apache index file
+    lineinfile:
+      path: /var/www/html/secure.html
+      line: Welcome to the secure Apache webserver
+      create: yes
+  - name: Creating Virtualhost file
+    lineinfile:
+      path: /var/www/html/vhost.html
+      line: Welcome to the Virtual host
+      create: yes
+    tags: files
+  - name: Creating WSGI script
+    blockinfile:
+      path: /var/www/html/script.wsgi
+      block: |
+        def application(environ, start_response):
+            status = '200 OK'
+            output = 'Hello World!'     
+            response_headers = [('Content-type', 'text/plain'),
+                                ('Content-Length', str(len(output)))]
+            start_response(status, response_headers)
+            return [output]
+      create: yes
+    tags: files
+  - name: Creating User Scripting File
+    copy:
+      dest: /var/www/html/users.txt
+      content: "bob\npatty\njohn\nleslie"
+      force: yes
+    tags: files
+  - name: Welcome to the RHCE 7 Study/Test Environment!
+    debug:
+      msg:
+        - ' The repo server, IPA server, Server 1, and Server 2 have been set up successfully!'
+        - '-----------------------------------------------------------------------------------'
+        - ' Server 2 is rebooting.  If you are unable to access it right away,'
+        - ' wait a couple moments, then try again.'
+        - '-----------------------------------------------------------------------------------'
+        - ' Next Steps: Accessing The Systems:'
+        - '- IPA Server - 192.168.1.51'
+        - '- System 1 - 192.168.1.52'
+        - '- System 2 - 192.168.1.53'
+        - '- Username/Password - vagrant'
+        - '- Access brydar - `ssh vagrant@192.168.1.52` or `vagrant ssh system1`'
+        - '-----------------------------------------------------------------------------------'
+        - '- Repo, keytab, and available CA certificate information are on System 1 or 2.'
