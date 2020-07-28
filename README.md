@@ -1,10 +1,9 @@
-# RHCE 7 Automated Practice Deployment
-_Powered by Ansible and Vagrant_ 
+# Centos 7 Automated Practice Deployment
 
-## Notable Vagrant Commands to control the environment:
+## Vagrant Commands to control the environment:
 - `vagrant up` - Boots and provisions the environment
 - `vagrant destroy -f` - Shuts down and destroys the environment
-- `vagrant halt` - Only shuts down the environment VMs (can be booted up with `vagrant up`)
+- `vagrant halt` - Only shuts down the environment VMs
 - `vagrant suspend` - Puts the VMs in a suspended state
 - `vagrant resume` - Takes VMs out of a suspended state
 
@@ -16,23 +15,23 @@ _Powered by Ansible and Vagrant_
 
 ## System Details:
 > repo
-- IP - 192.168.55.19
-- Gateway - 192.168.55.1
-- DNS - 192.168.55.5
+- IP - 192.168.1.
+- Gateway - 192.168.1.1
+- DNS - 192.168.1.1
 > ipa
-- 192.168.55.20
-- Gateway - 192.168.55.1
-- DNS - 192.168.55.5
+- 192.168.1.
+- Gateway - 192.168.1.1
+- DNS - 192.168.1.1
 > system1
-- 192.168.55.21
-- Gateway - 192.168.55.1
-- DNS - 192.168.55.5
+- 192.168.1.
+- Gateway - 192.168.1.1
+- DNS - 192.168.1.1
 > system2
-- 192.168.55.22
-- Gateway - 192.168.55.1
-- DNS - 192.168.55.5
+- 192.168.1.
+- Gateway - 192.168.1.1
+- DNS - 192.168.1.1
 
-There is a repo available to use from `http://repo.test.example.com/rpms`
+There is a repo available to use from `http://repo.brydar.com/rpms`
 
 ## Accessing the systems
 Remember to add the IP addresses to your local host file if you want to connect to the guest systems with the hostname.
